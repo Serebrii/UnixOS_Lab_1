@@ -2,74 +2,111 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <algorithm>
 #include <iomanip>
+#include <cmath>
+#include <cstdlib>
 
 using namespace std;
 
-struct Bucket {
-    string name;
-    long long min_size;
-    long long max_size;
-    long long count;
-};
+// Функція для перевірки існування файлу
+bool fileExists(const string& filename) {
+    ifstream file(filename);
+    return file.good();
+}
 
 int main() {
-    vector<Bucket> buckets = {
-        {"0 B", 0, 0, 0},
-        {"1 B - 1 KB", 1, 1024, 0},
-        {"1 KB - 10 KB", 1025, 10240, 0},
-        {"10 KB - 100 KB", 10241, 102400, 0},
-        {"100 KB - 1 MB", 102401, 1048576, 0},
-        {"1 MB - 10 MB", 1048577, 10485760, 0},
-        {"10 MB - 100 MB", 10485761, 104857600, 0},
-        {"100 MB - 1 GB", 104857601, 1073741824, 0},
-        {"> 1 GB", 1073741825, -1, 0}
-    };
+    string filename = "result.txt";
+    vector<long long> sizes;
 
-    ifstream file("result.txt");
+    // 1. Перевірка наявності файлу та автоматичний збір даних
+    if (!fileExists(filename)) {
+        cout << "Файл " << filename << " не знайдено.\n";
+        cout << "Ініційовано автоматичний збір даних файлової системи...\n";
+        cout << "Процес може зайняти декілька хвилин. Будь ласка, зачекайте.\n";
+
+        // Виконання команди Linux безпосередньо з C++ програми
+        int status = system("find / -type f -ls 2>/dev/null | awk '{print $7}' > result.txt");
+
+        if (status != 0) {
+            cerr << "Збір даних завершився з кодом помилки: " << status << "\n";
+            return 1;
+        }
+        cout << "Збір даних успішно завершено.\n\n";
+    }
+    else {
+        cout << "Файл " << filename << " знайдено. Використовуються збережені дані...\n\n";
+    }
+
+    // 2. Зчитування даних з файлу
+    ifstream file(filename);
     if (!file.is_open()) {
-        cerr << "Помилка: не вдалося відкрити файл result.txt" << endl;
+        cerr << "Не вдалося відкрити файл " << filename << "\n";
         return 1;
     }
 
     string line;
-    long long total_files = 0;
-
     while (getline(file, line)) {
         if (line.empty()) continue;
         try {
             long long size = stoll(line);
-            total_files++;
-            
-            for (auto& b : buckets) {
-                if (size >= b.min_size && (b.max_size == -1 || size <= b.max_size)) {
-                    b.count++;
-                    break;
-                }
-            }
-        } catch (...) {
+            sizes.push_back(size);
+        }
+        catch (...) {
+            // Ігнорування пошкоджених рядків
         }
     }
     file.close();
 
-    cout << "Всього оброблено файлів: " << total_files << "\n\n";
-    cout << left << setw(18) << "Діапазон" << setw(12) << "Кількість" << setw(12) << "Відсоток" << "Гістограма\n";
-    cout << string(80, '-') << "\n";
-
-    long long max_count = 0;
-    for (const auto& b : buckets) {
-        if (b.count > max_count) max_count = b.count;
+    long long total_files = sizes.size();
+    if (total_files == 0) {
+        cout << "Файл порожній або не містить коректних числових даних.\n";
+        return 1;
     }
 
-    for (const auto& b : buckets) {
-        double percent = total_files > 0 ? (double)b.count / total_files * 100.0 : 0.0;
-        int bar_length = max_count > 0 ? (b.count * 40) / max_count : 0;
-        string bar(bar_length, '#');
+    // 3. Аналіз та підготовка до візуалізації
+    sort(sizes.begin(), sizes.end());
+    long long max_size = sizes.back();
+    if (max_size < 1) max_size = 1;
 
-        cout << left << setw(18) << b.name
-             << setw(12) << b.count
-             << fixed << setprecision(2) << percent << "%\t"
-             << bar << "\n";
+    // --- ТАБЛИЦЯ 1: Логарифмічна шкала (50 точок) ---
+    cout << "========================================================\n";
+    cout << " ТАБЛИЦЯ 1: ЛОГАРИФМІЧНА ШКАЛА (УСЯ ФАЙЛОВА СИСТЕМА)\n";
+    cout << "========================================================\n";
+    cout << "Розмір(X)\tВідсоток(Y)\n";
+
+    double log_min = 0.0;
+    double log_max = log10((double)max_size);
+    double step = log_max / 49.0;
+
+    for (int i = 0; i < 50; ++i) {
+        long long bound = (i == 0) ? 0 : (long long)pow(10, log_min + i * step);
+        if (i == 49) bound = max_size;
+
+        auto it = upper_bound(sizes.begin(), sizes.end(), bound);
+        long long count = distance(sizes.begin(), it);
+        double cdf = (double)count / total_files * 100.0;
+
+        cout << bound << "\t" << fixed << setprecision(2) << cdf << "\n";
+    }
+
+    // --- ТАБЛИЦЯ 2: Лінійна шкала мікрорівня (до 100 КБ, 50 точок) ---
+    cout << "\n========================================================\n";
+    cout << " ТАБЛИЦЯ 2: ЛІНІЙНА ШКАЛА ДО 100 КБ\n";
+    cout << "========================================================\n";
+    cout << "Розмір(X)\tВідсоток(Y)\n";
+
+    long long linear_max = 102400;
+    long long linear_step = linear_max / 50;
+
+    for (int i = 1; i <= 50; ++i) {
+        long long bound = i * linear_step;
+
+        auto it = upper_bound(sizes.begin(), sizes.end(), bound);
+        long long count = distance(sizes.begin(), it);
+        double cdf = (double)count / total_files * 100.0;
+
+        cout << bound << "\t" << fixed << setprecision(2) << cdf << "\n";
     }
 
     return 0;
