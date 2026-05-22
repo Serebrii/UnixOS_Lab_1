@@ -21,27 +21,26 @@ int main() {
 
     // 1. Перевірка наявності файлу та автоматичний збір даних
     if (!fileExists(filename)) {
-        cout << "Файл " << filename << " не знайдено.\n";
-        cout << "Ініційовано автоматичний збір даних файлової системи...\n";
-        cout << "Процес може зайняти декілька хвилин. Будь ласка, зачекайте.\n";
+        cout << "File " << filename << " not found.\n";
+        cout << "Initialized automatic data collection for the file system...\n";
 
         // Виконання команди Linux безпосередньо з C++ програми
         int status = system("find / -type f -ls 2>/dev/null | awk '{print $7}' > result.txt");
 
         if (status != 0) {
-            cerr << "Збір даних завершився з кодом помилки: " << status << "\n";
+            cerr << "Data collection failed with error code: " << status << "\n";
             return 1;
         }
-        cout << "Збір даних успішно завершено.\n\n";
+        cout << "Data collection completed successfully.\n\n";
     }
     else {
-        cout << "Файл " << filename << " знайдено. Використовуються збережені дані...\n\n";
+        cout << "File " << filename << " found. Using existing data...\n\n";
     }
 
     // 2. Зчитування даних з файлу
     ifstream file(filename);
     if (!file.is_open()) {
-        cerr << "Не вдалося відкрити файл " << filename << "\n";
+        cerr << "Failed to open file " << filename << "\n";
         return 1;
     }
 
@@ -60,7 +59,7 @@ int main() {
 
     long long total_files = sizes.size();
     if (total_files == 0) {
-        cout << "Файл порожній або не містить коректних числових даних.\n";
+        cout << "File is empty or does not contain valid numeric data.\n";
         return 1;
     }
 
@@ -71,9 +70,9 @@ int main() {
 
     // --- ТАБЛИЦЯ 1: Логарифмічна шкала (50 точок) ---
     cout << "========================================================\n";
-    cout << " ТАБЛИЦЯ 1: ЛОГАРИФМІЧНА ШКАЛА (УСЯ ФАЙЛОВА СИСТЕМА)\n";
+    cout << " TABLE 1: LOGARITHMIC SCALE (ENTIRE FILE SYSTEM)\n";
     cout << "========================================================\n";
-    cout << "Розмір(X)\tВідсоток(Y)\n";
+    cout << "Size(X)\tPercentage(Y)\n";
 
     double log_min = 0.0;
     double log_max = log10((double)max_size);
@@ -92,9 +91,9 @@ int main() {
 
     // --- ТАБЛИЦЯ 2: Лінійна шкала мікрорівня (до 100 КБ, 50 точок) ---
     cout << "\n========================================================\n";
-    cout << " ТАБЛИЦЯ 2: ЛІНІЙНА ШКАЛА ДО 100 КБ\n";
+    cout << " TABLE 2: LINEAR SCALE UP TO 100 KB\n";
     cout << "========================================================\n";
-    cout << "Розмір(X)\tВідсоток(Y)\n";
+    cout << "Size(X)\tPercentage(Y)\n";
 
     long long linear_max = 102400;
     long long linear_step = linear_max / 50;
